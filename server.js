@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const YOUR_EMAIL = "manan.kachhwaha@nexuscomchem.com";
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT ;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
