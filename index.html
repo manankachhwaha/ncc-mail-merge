@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCC Mail Merge</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; }
+  .topbar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 14px 32px; display: flex; align-items: center; gap: 12px; }
+  .topbar .logo { font-weight: 600; font-size: 15px; }
+  .topbar .from { font-size: 13px; color: #888; margin-left: auto; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; display: inline-block; margin-right: 6px; }
+  .status-dot.connected { background: #22c55e; }
+  .container { max-width: 960px; margin: 28px auto; padding: 0 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 18px; }
+  .card.full { grid-column: 1 / -1; }
+  .card-title { font-size: 11px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; }
+  label { font-size: 13px; color: #555; display: block; margin-bottom: 5px; margin-top: 12px; }
+  label:first-of-type { margin-top: 0; }
+  input { width: 100%; border: 1px solid #e0e0e0; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-family: inherit; color: #1a1a1a; background: #fafafa; transition: border 0.15s; }
+  input:focus { outline: none; border-color: #1a1a1a; background: #fff; }
+  input[type=password] { letter-spacing: 0.1em; }
+  .save-btn { margin-top: 12px; width: 100%; padding: 9px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; }
+  .save-btn:hover { background: #f5f5f3; }
+  .send-btn { width: 100%; padding: 13px; border: none; border-radius: 10px; background: #1a1a1a; color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; }
+  .send-btn:hover { opacity: 0.85; }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .hint { font-size: 12px; color: #aaa; margin-top: 5px; line-height: 1.5; }
+  .code { font-family: 'Courier New', monospace; background: #f0f0ee; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .counter { font-size: 12px; color: #888; margin-top: 6px; }
+  .badge { display: inline-block; background: #f0f0ee; color: #666; font-size: 11px; padding: 2px 7px; border-radius: 20px; margin-left: 6px; }
+  .progress-wrap { margin-top: 16px; display: none; }
+  .prog-bg { background: #f0f0ee; border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 10px; }
+  .prog-fill { height: 6px; background: #1a1a1a; border-radius: 4px; transition: width 0.3s; width: 0%; }
+  .log { background: #f8f8f6; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px; font-size: 12px; font-family: 'Courier New', monospace; max-height: 180px; overflow-y: auto; line-height: 2; }
+  .log-ok { color: #16a34a; } .log-err { color: #dc2626; } .log-info { color: #888; }
+  .prog-label { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 6px; }
+
+  /* Toolbar */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; background: #f8f8f6; border: 1px solid #e5e5e5; border-bottom: none; border-radius: 8px 8px 0 0; align-items: center; }
+  .toolbar button { border: 1px solid #e0e0e0; background: #fff; border-radius: 5px; padding: 4px 9px; font-size: 13px; cursor: pointer; color: #333; min-width: 28px; line-height: 1.4; }
+  .toolbar button:hover { background: #f0f0ee; }
+  .toolbar select { border: 1px solid #e0e0e0; background: #fff; border-radius: 5px; padding: 4px 6px; font-size: 13px; cursor: pointer; color: #333; height: 28px; }
+  .toolbar .sep { width: 1px; height: 22px; background: #e0e0e0; margin: 0 3px; flex-shrink: 0; }
+  .toolbar input[type=color] { width: 28px; height: 28px; padding: 2px; border: 1px solid #e0e0e0; border-radius: 5px; cursor: pointer; }
+  .name-tag { display: inline-block; background: #e8f4fd; color: #1a73e8; font-family: 'Courier New', monospace; font-size: 13px; padding: 0 4px; border-radius: 3px; border: 1px solid #b3d4f5; cursor: default; user-select: none; }
+
+  /* Editor */
+  #editor { border: 1px solid #e5e5e5; border-radius: 0 0 8px 8px; min-height: 300px; padding: 16px; font-size: 14px; line-height: 1.8; outline: none; background: #fff; overflow-y: auto; font-family: Arial, sans-serif; position: relative; }
+  #editor:focus { border-color: #bbb; }
+
+  /* Sig wrapper — this is what goes in the editor */
+  .sig-wrapper { display: inline-block; position: relative; line-height: 0; user-select: none; }
+  .sig-wrapper img { display: block; }
+  .sig-wrapper .resize-handle { position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; background: #1a73e8; border-radius: 2px 0 2px 0; cursor: se-resize; display: none; }
+  .sig-wrapper .resize-handle::after { content: ''; position: absolute; bottom: 2px; right: 2px; width: 6px; height: 6px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; }
+  .sig-wrapper.selected { outline: 2px solid #1a73e8; }
+  .sig-wrapper.selected .resize-handle { display: block; }
+  .sig-wrapper .size-label { position: absolute; top: -22px; left: 0; background: #1a73e8; color: #fff; font-size: 11px; font-family: sans-serif; padding: 2px 6px; border-radius: 3px; white-space: nowrap; display: none; pointer-events: none; }
+  .sig-wrapper.selected .size-label { display: block; }
+
+  /* Sig upload area */
+  .sig-upload { border: 1.5px dashed #d0d0d0; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; background: #fafafa; }
+  .sig-upload:hover { border-color: #888; }
+  .sig-upload span { font-size: 13px; color: #888; }
+  .sig-btns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .sig-btns button { font-size: 12px; padding: 5px 12px; border: 1px solid #e0e0e0; background: #fff; border-radius: 6px; cursor: pointer; }
+  .sig-btns button:hover { background: #f5f5f3; }
+  .slider-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .slider-row label { font-size: 12px; color: #555; margin: 0; white-space: nowrap; }
+  .slider-row input[type=range] { flex: 1; }
+  .slider-row span { font-size: 12px; color: #555; font-weight: 500; min-width: 48px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">NCC Mail Merge</div>
+  <span class="from">manan.kachhwaha@nexuscomchem.com</span>
+  <span id="conn-indicator"><span class="status-dot" id="dot"></span><span id="conn-text" style="font-size:13px;color:#888;">not connected</span></span>
+</div>
+
+<div class="container">
+
+  <!-- Credentials -->
+  <div class="card">
+    <div class="card-title">Zoho credentials</div>
+    <label>App password</label>
+    <input type="password" id="app-pass" placeholder="Your Zoho app password">
+    <p class="hint">myaccount.zoho.com → Security → App Passwords</p>
+    <button class="save-btn" onclick="savePass()">Save & connect</button>
+  </div>
+
+  <!-- Contacts -->
+  <div class="card">
+    <div class="card-title">Contact list</div>
+    <label>One per line — <span class="code">Name, email@domain.com</span></label>
+    <textarea id="contacts" rows="6" style="width:100%;border:1px solid #e0e0e0;border-radius:8px;padding:9px 12px;font-size:14px;font-family:inherit;background:#fafafa;resize:vertical;outline:none;" oninput="updateCounter()" placeholder="John Smith, john@company.com&#10;Sarah Lee, sarah@firm.com"></textarea>
+    <p class="counter" id="counter">0 contacts</p>
+  </div>
+
+  <!-- Email details -->
+  <div class="card full">
+    <div class="card-title">Email details</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div><label>From name</label><input type="text" id="from-name" value="Manan Kachhwaha"></div>
+      <div><label>CC <span class="badge">optional</span></label><input type="email" id="cc-email" placeholder="shrey.jain@nexuscomchem.com"></div>
+      <div><label>Subject</label><input type="text" id="subject" placeholder="Guar Gum Sourcing Inquiry | NCC"></div>
+    </div>
+    <p class="hint" style="margin-top:8px;">Use the <span style="background:#e8f4fd;color:#1a73e8;font-family:monospace;padding:1px 5px;border-radius:3px;border:1px solid #b3d4f5;font-size:12px;">+ Name</span> button to insert the recipient name — it sends as plain text with no extra formatting.</p>
+  </div>
+
+  <!-- Editor -->
+  <div class="card full">
+    <div class="card-title">Email body</div>
+    <div class="toolbar">
+      <select onchange="execCmd('fontName',this.value);this.blur();">
+        <option value="Arial" selected>Arial</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Trebuchet MS">Trebuchet MS</option>
+        <option value="Calibri">Calibri</option>
+      </select>
+      <select onchange="execCmd('fontSize',this.value);this.blur();">
+        <option value="">Sz</option>
+        <option value="1">8</option>
+        <option value="2">10</option>
+        <option value="3" selected>12</option>
+        <option value="4">14</option>
+        <option value="5">18</option>
+        <option value="6">24</option>
+        <option value="7">36</option>
+      </select>
+      <div class="sep"></div>
+      <button onclick="execCmd('bold')"><b>B</b></button>
+      <button onclick="execCmd('italic')"><i>I</i></button>
+      <button onclick="execCmd('underline')"><u>U</u></button>
+      <button onclick="execCmd('strikeThrough')"><s>S</s></button>
+      <div class="sep"></div>
+      <input type="color" value="#000000" title="Text color" onchange="execCmd('foreColor',this.value)">
+      <input type="color" value="#ffff00" title="Highlight" onchange="execCmd('hiliteColor',this.value)">
+      <div class="sep"></div>
+      <button onclick="execCmd('justifyLeft')">&#8676;</button>
+      <button onclick="execCmd('justifyCenter')">&#8677;</button>
+      <button onclick="execCmd('justifyRight')">&#8678;</button>
+      <div class="sep"></div>
+      <button onclick="execCmd('insertUnorderedList')">&#8226; List</button>
+      <button onclick="execCmd('insertOrderedList')">1. List</button>
+      <div class="sep"></div>
+      <button onclick="insertNameTag()" style="background:#e8f4fd;border-color:#b3d4f5;color:#1a73e8;">+ Name</button>
+      <button onclick="insertLink()">&#128279; Link</button>
+      <button onclick="execCmd('removeFormat')" style="color:#888;">&#10005; Clear</button>
+    </div>
+    <div id="editor" contenteditable="true" spellcheck="true"></div>
+  </div>
+
+  <!-- Signature -->
+  <div class="card full">
+    <div class="card-title">Signature image</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+      <div>
+        <div class="sig-upload" onclick="document.getElementById('sig-file').click()">
+          <span>&#128247; Click to upload signature image (PNG/JPG)</span>
+          <input type="file" id="sig-file" accept="image/*" style="display:none" onchange="loadSig(this)">
+        </div>
+        <div id="sig-loaded" style="display:none;">
+          <div class="slider-row" style="margin-top:12px;">
+            <label>Width</label>
+            <input type="range" id="sig-slider" min="80" max="620" value="300" oninput="onSliderChange(this.value)">
+            <span id="sig-slider-val">300px</span>
+          </div>
+          <div class="sig-btns">
+            <button onclick="insertSigAtCursor()">&#8595; Insert at cursor</button>
+            <button onclick="appendSigBottom()">&#8595; Append to bottom</button>
+            <button onclick="clearSig()" style="color:#dc2626;">&#10005; Remove all</button>
+          </div>
+          <div style="margin-top:10px;">
+            <img id="sig-thumb" style="max-width:200px;border-radius:6px;border:1px solid #e5e5e5;" src="" alt="Signature preview">
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#888;line-height:1.9;">
+        <b style="color:#555;font-size:13px;">How to resize:</b><br>
+        • Use the slider above before inserting<br>
+        • After inserting, <b style="color:#555;">click the image</b> in the editor — a blue outline appears with a <b style="color:#1a73e8;">drag handle</b> at the bottom-right corner<br>
+        • <b style="color:#555;">Drag that corner</b> to resize freely<br>
+        • The live size (e.g. 320px) shows above the image while resizing<br>
+        • Click anywhere else to deselect
+      </div>
+    </div>
+  </div>
+
+  <!-- Send -->
+  <div class="card full">
+    <button class="send-btn" id="send-btn" onclick="startSend()">Send to all contacts</button>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="prog-label"><span id="prog-label">Sending...</span><span id="prog-count"></span></div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Credentials ───────────────────────────────────────
+let savedPass = localStorage.getItem('zoho_app_pass') || '';
+if (savedPass) { document.getElementById('app-pass').value = savedPass; setConnected(true); }
+function savePass() {
+  const p = document.getElementById('app-pass').value.trim();
+  if (!p) { alert('Enter your app password first.'); return; }
+  savedPass = p; localStorage.setItem('zoho_app_pass', p); setConnected(true);
+}
+function setConnected(yes) {
+  document.getElementById('dot').className = 'status-dot' + (yes ? ' connected' : '');
+  document.getElementById('conn-text').textContent = yes ? 'connected' : 'not connected';
+}
+
+// ── Contacts ──────────────────────────────────────────
+function parseContacts() {
+  return document.getElementById('contacts').value.trim().split('\n').map(l => {
+    const parts = l.split(','); if (parts.length < 2) return null;
+    const name = parts[0].trim(); const email = parts.slice(1).join(',').trim();
+    return (name && email) ? { name, email } : null;
+  }).filter(Boolean);
+}
+function updateCounter() {
+  const c = parseContacts();
+  document.getElementById('counter').textContent = c.length + ' contact' + (c.length !== 1 ? 's' : '');
+}
+
+// ── Editor ────────────────────────────────────────────
+function execCmd(cmd, val) {
+  document.getElementById('editor').focus();
+  document.execCommand(cmd, false, val || null);
+}
+function insertLink() {
+  const url = prompt('Enter URL:', 'https://');
+  if (url) execCmd('createLink', url);
+}
+function insertNameTag() {
+  const editor = document.getElementById('editor');
+  editor.focus();
+  const span = document.createElement('span');
+  span.className = 'name-tag';
+  span.setAttribute('data-name-placeholder', '1');
+  span.contentEditable = 'false';
+  span.textContent = '{{name}}';
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(span);
+    const newRange = document.createRange();
+    newRange.setStartAfter(span); newRange.collapse(true);
+    sel.removeAllRanges(); sel.addRange(newRange);
+  } else { editor.appendChild(span); }
+}
+
+// ── Signature ─────────────────────────────────────────
+let sigDataUrl = null;
+let sigWidth = 300;
+let activeSigWrapper = null;
+
+function loadSig(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    sigDataUrl = e.target.result;
+    document.getElementById('sig-thumb').src = sigDataUrl;
+    document.getElementById('sig-loaded').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function onSliderChange(val) {
+  sigWidth = parseInt(val);
+  document.getElementById('sig-slider-val').textContent = val + 'px';
+  // Update selected sig if any
+  if (activeSigWrapper) {
+    const img = activeSigWrapper.querySelector('img');
+    img.style.width = val + 'px';
+    img.setAttribute('width', val);
+    updateSizeLabel(activeSigWrapper, val);
+  }
+}
+
+function updateSizeLabel(wrapper, w) {
+  const lbl = wrapper.querySelector('.size-label');
+  if (lbl) lbl.textContent = Math.round(w) + 'px';
+}
+
+function createSigWrapper() {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'sig-wrapper';
+  wrapper.contentEditable = 'false';
+  wrapper.setAttribute('data-sig', '1');
+
+  const sizeLabel = document.createElement('span');
+  sizeLabel.className = 'size-label';
+  sizeLabel.textContent = sigWidth + 'px';
+  wrapper.appendChild(sizeLabel);
+
+  const img = document.createElement('img');
+  img.src = sigDataUrl;
+  img.style.width = sigWidth + 'px';
+  img.setAttribute('width', sigWidth);
+  wrapper.appendChild(img);
+
+  const handle = document.createElement('span');
+  handle.className = 'resize-handle';
+  wrapper.appendChild(handle);
+
+  // Click to select
+  wrapper.addEventListener('mousedown', e => {
+    if (e.target === handle) { startResize(e, wrapper); return; }
+    e.preventDefault();
+    selectSig(wrapper);
+  });
+
+  return wrapper;
+}
+
+function selectSig(wrapper) {
+  deselectAll();
+  wrapper.classList.add('selected');
+  activeSigWrapper = wrapper;
+  // Sync slider
+  const img = wrapper.querySelector('img');
+  const w = img.offsetWidth || parseInt(img.getAttribute('width')) || sigWidth;
+  document.getElementById('sig-slider').value = Math.min(620, w);
+  document.getElementById('sig-slider-val').textContent = Math.round(w) + 'px';
+  sigWidth = w;
+}
+
+function deselectAll() {
+  document.querySelectorAll('.sig-wrapper.selected').forEach(w => w.classList.remove('selected'));
+  activeSigWrapper = null;
+}
+
+// Resize drag
+let resizeState = null;
+function startResize(e, wrapper) {
+  e.preventDefault(); e.stopPropagation();
+  selectSig(wrapper);
+  const img = wrapper.querySelector('img');
+  resizeState = { wrapper, img, startX: e.clientX, startW: img.offsetWidth };
+  document.addEventListener('mousemove', onResize);
+  document.addEventListener('mouseup', stopResize);
+}
+function onResize(e) {
+  if (!resizeState) return;
+  const newW = Math.max(60, resizeState.startW + (e.clientX - resizeState.startX));
+  resizeState.img.style.width = newW + 'px';
+  resizeState.img.setAttribute('width', Math.round(newW));
+  updateSizeLabel(resizeState.wrapper, newW);
+  // Sync slider
+  document.getElementById('sig-slider').value = Math.min(620, newW);
+  document.getElementById('sig-slider-val').textContent = Math.round(newW) + 'px';
+  sigWidth = newW;
+}
+function stopResize() {
+  resizeState = null;
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', stopResize);
+}
+
+// Deselect when clicking outside sig
+document.getElementById('editor').addEventListener('mousedown', e => {
+  if (!e.target.closest('.sig-wrapper')) deselectAll();
+});
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('.sig-wrapper') && !e.target.closest('#sig-slider') && !e.target.closest('#sig-slider-val')) {
+    deselectAll();
+  }
+});
+
+function insertSigAtCursor() {
+  if (!sigDataUrl) { alert('Upload a signature image first.'); return; }
+  const editor = document.getElementById('editor');
+  editor.focus();
+  const wrapper = createSigWrapper();
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(wrapper);
+    range.setStartAfter(wrapper); range.collapse(true);
+    sel.removeAllRanges(); sel.addRange(range);
+  } else { editor.appendChild(wrapper); }
+}
+
+function appendSigBottom() {
+  if (!sigDataUrl) { alert('Upload a signature image first.'); return; }
+  const editor = document.getElementById('editor');
+  document.querySelectorAll('#editor [data-sig="1"]').forEach(w => w.remove());
+  const br = document.createElement('br');
+  const wrapper = createSigWrapper();
+  editor.appendChild(br);
+  editor.appendChild(wrapper);
+}
+
+function clearSig() {
+  document.querySelectorAll('#editor [data-sig="1"]').forEach(w => w.remove());
+  sigDataUrl = null;
+  document.getElementById('sig-loaded').style.display = 'none';
+  document.getElementById('sig-file').value = '';
+  deselectAll();
+}
+
+// ── Send ──────────────────────────────────────────────
+function log(msg, type) {
+  const box = document.getElementById('log');
+  const line = document.createElement('div'); line.className = 'log-' + type; line.textContent = msg;
+  box.appendChild(line); box.scrollTop = box.scrollHeight;
+}
+
+async function startSend() {
+  const appPassword = savedPass || document.getElementById('app-pass').value.trim();
+  const contacts = parseContacts();
+  const subject = document.getElementById('subject').value.trim();
+  const ccEmail = document.getElementById('cc-email').value.trim();
+  const fromName = document.getElementById('from-name').value.trim() || 'Manan Kachhwaha';
+
+  // Deselect everything before cloning
+  deselectAll();
+
+  const editorClone = document.getElementById('editor').cloneNode(true);
+
+  // Replace name-tag spans with plain {{name}}
+  editorClone.querySelectorAll('[data-name-placeholder]').forEach(span => span.replaceWith('{{name}}'));
+
+  // Remove resize handles and size labels from sig wrappers, keep img
+  editorClone.querySelectorAll('.sig-wrapper').forEach(wrapper => {
+    wrapper.querySelectorAll('.resize-handle, .size-label').forEach(el => el.remove());
+    wrapper.removeAttribute('contenteditable');
+    wrapper.style.display = 'block';
+  });
+
+  const emailHtml = editorClone.innerHTML.trim();
+  const emailText = editorClone.innerText.trim();
+
+  if (!appPassword) { alert('Save your app password first.'); return; }
+  if (!contacts.length) { alert('Add at least one contact.'); return; }
+  if (!subject) { alert('Enter a subject line.'); return; }
+  if (!emailHtml) { alert('Write the email body.'); return; }
+
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('prog-fill').style.width = '0%';
+
+  try {
+    const res = await fetch('/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appPassword, contacts, subject, emailHtml, emailText, ccEmail, fromName })
+    });
+    const data = await res.json();
+    if (data.error) { log('Error: ' + data.error, 'err'); btn.disabled = false; return; }
+    let sent = 0, failed = 0;
+    for (let i = 0; i < data.results.length; i++) {
+      const r = data.results[i];
+      document.getElementById('prog-fill').style.width = Math.round(((i+1)/data.results.length)*100) + '%';
+      document.getElementById('prog-count').textContent = (i+1) + ' / ' + data.results.length;
+      if (r.status === 'sent') { log('✓ Sent to ' + r.name + ' <' + r.email + '>' + (ccEmail ? ' | CC: ' + ccEmail : ''), 'ok'); sent++; }
+      else { log('✗ Failed: ' + r.name + ' — ' + (r.error||'unknown'), 'err'); failed++; }
+    }
+    document.getElementById('prog-label').textContent = 'Done';
+    log('── Finished: ' + sent + ' sent, ' + failed + ' failed', 'info');
+  } catch(e) {
+    log('Cannot reach server. Run: node server.js', 'err');
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "ncc-mail-merge",
+  "version": "1.0.0",
+  "description": "NCC Mail Merge Tool",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  }
+}
