@@ -121,6 +121,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 NCC Mail Merge ready — open http://localhost:3000 in your browser\n`);
 });
